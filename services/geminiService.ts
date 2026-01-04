@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { Scene, DialogueLine } from "../types";
+import { Scene } from "../types";
 
 const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -96,13 +96,14 @@ export const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
     });
     const base64Data = await base64Promise;
 
+    // Use Native Audio model for best transcription accuracy
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.5-flash-native-audio-preview-09-2025',
       contents: [
         {
           parts: [
             { inlineData: { data: base64Data, mimeType: 'audio/webm' } },
-            { text: "Transcribe exactly what is said in this audio. If nothing is said, return an empty string." }
+            { text: "Transcribe exactly what is said in this audio. If nothing is said, return an empty string. Output only the transcript text." }
           ]
         }
       ]
@@ -114,16 +115,14 @@ export const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
   }
 };
 
-export const generateLipSyncVideo = async (originalVideoUrl: string, transcription: string, sceneContext: string): Promise<string | null> => {
+export const generateLipSyncVideo = async (originalVideoUrl: string, transcription: string): Promise<string | null> => {
   try {
     const ai = getAI();
     
-    // Fetch the video data as a starting point (V2V)
-    // In a real environment, you'd pass the previous operation's video object
-    // For this implementation, we use the prompt to guide Veo to lip sync
+    // We guide Veo to re-animate the mouth specifically for the dubbing transcript
     let operation = await ai.models.generateVideos({
       model: 'veo-3.1-generate-preview',
-      prompt: `Keep the character and setting identical to the provided scene. Modify the animation so the character's mouth movements perfectly synchronize with them saying: "${transcription}". Focus on realistic lip movement, jaw motion, and facial expressions that match the emotion of the speech.`,
+      prompt: `Synchronize character lip movements to match the spoken words: "${transcription}". Maintain the same actor, lighting, and environment. The mouth should naturally follow the phonetic flow of the speech with high realism.`,
       config: {
         numberOfVideos: 1,
         resolution: '720p',
@@ -150,14 +149,12 @@ export const getPerformanceFeedback = async (scene: Scene, recordingDuration: nu
     model: 'gemini-3-flash-preview',
     contents: `The user just performed a dubbing of this scene: "${scene.title}". 
     Context: ${scene.context}. 
-    Original Dialogue: ${JSON.stringify(scene.dialogue)}. 
     User's actual words (transcribed): "${transcript}".
-    The performance took ${recordingDuration.toFixed(1)} seconds. 
-    Provide constructive, encouraging feedback as a world-class voice director. 
-    Focus on emotion and timing. Keep it concise (3-4 sentences).`,
+    Performance duration: ${recordingDuration.toFixed(1)}s. 
+    Provide constructive, professional feedback as a voice director. Keep it concise (3 sentences).`,
   });
 
-  return response.text || "Great job! Keep practicing to master the flow.";
+  return response.text || "Solid performance! Your timing is getting better.";
 };
 
 export const generateReferenceAudio = async (text: string, voice: string = 'Kore'): Promise<Uint8Array | null> => {
