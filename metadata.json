@@ -1,0 +1,7 @@
+{
+  "name": " DubMaster AI",
+  "description": "A high-performance dubbing studio that lets you create scenes, translate scripts, and master voice acting with real-time AI feedback.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
